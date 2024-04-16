@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const ApiError = require("../utils/apiError");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
@@ -76,6 +78,58 @@ const register = async (req, res, next) => {
   }
 };
 
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({
+      where: {
+        email,
+      },
+      include: ["Customer"],
+    });
+
+    if (user && bcrypt.compareSync(password, user.password)) {
+      const token = jwt.sign(
+        {
+          id: user.customerId,
+          username: user.username,
+          role: user.Customer.role,
+          email: user.email,
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: process.env.JWT_EXPIRES,
+        }
+      );
+      res.status(200).json({
+        status: "Success",
+        message: "Berhasil login",
+        data: token,
+      });
+    } else {
+      new next(new ApiError("Not Found User Or Wrong Password", 400));
+    }
+  } catch (err) {
+    new next(new ApiError(err.message, 500));
+  }
+};
+
+const authenticate = async (req, res) => {
+  try {
+    res.status(200).json({
+      status: "Success",
+      data: {
+        user: req.user,
+      },
+    });
+  } catch (err) {
+    next(new ApiError(err.message, 500));
+    return;
+  }
+};
+
 module.exports = {
   register,
+  login,
+  authenticate,
 };
